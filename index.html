@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Plant Waterer</title>
+    <!-- PWA & Mobile Web App Capabilities -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#047857">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icons/favicon-32.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="app.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-100 min-h-full text-slate-800 antialiased flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-emerald-700 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <img src="icons/icon-192.png" alt="" class="w-10 h-10 rounded-xl shadow-md">
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Plant Waterer</h1>
+                    <p class="text-xs text-emerald-200" id="connection-subtitle">ESP32 IoT Dashboard</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span id="connection-badge" class="px-2.5 py-1 text-xs font-medium rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/30 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Offline
+                </span>
+                <button onclick="toggleSettingsModal()" class="p-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 transition text-emerald-200">
+                    <svg class="w-5 h-5" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-md mx-auto w-full p-4 flex-1 flex flex-col space-y-4 pb-8">
+
+        <!-- Notification Banner / Toast -->
+        <div id="toast" class="hidden">
+            <span id="toast-message">Action successful</span>
+            <button onclick="hideToast()" class="text-xs opacity-70 hover:opacity-100">&times;</button>
+        </div>
+
+        <!-- Sensor Metrics Card (Dryness %) -->
+        <div class="bg-white rounded-3xl p-6 shadow-xl shadow-emerald-900/5 border border-emerald-100 relative overflow-hidden flex flex-col items-center text-center">
+            <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-400 to-teal-500"></div>
+            
+            <span class="text-xs font-semibold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full mb-4">Soil Dryness Level</span>
+            
+            <!-- Circular Gauge Visualization -->
+            <div class="relative w-40 h-40 flex items-center justify-center my-2">
+                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" stroke="currentColor" stroke-width="8" class="text-slate-100 fill-none"></circle>
+                    <circle id="dryness-ring" cx="50" cy="50" r="40" stroke="currentColor" stroke-width="8" stroke-dasharray="251.2" stroke-dashoffset="150" stroke-linecap="round" class="text-emerald-500 fill-none transition-all duration-500"></circle>
+                </svg>
+                <div class="absolute flex flex-col items-center justify-center">
+                    <span id="val-dryness" class="text-4xl font-extrabold text-slate-800">--%</span>
+                    <span class="text-xs text-slate-400 font-medium">Dryness</span>
+                </div>
+            </div>
+
+            <p id="dryness-status-text" class="text-sm font-medium text-slate-500 mt-2">Connecting to sensor...</p>
+        </div>
+
+        <!-- Status Grid (Pump & Auto Mode) -->
+        <div class="grid grid-cols-2 gap-4">
+        
+            <!-- Pump Status Card -->
+            <div id="pump-card" class="bg-white rounded-2xl p-4 shadow-lg shadow-emerald-900/5 border border-slate-100 flex flex-col justify-between transition-all duration-300">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-medium text-slate-400">Water Pump</span>
+                    <div id="pump-icon-bg" class="p-2 rounded-xl bg-slate-100 text-slate-500 transition-colors">
+                        <svg class="w-5 h-5" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"></path><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"></path></svg>
+                    </div>
+                </div>
+                <div>
+                    <h3 id="val-pump" class="text-xl font-bold text-slate-800">OFF</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Relay Status</p>
+                </div>
+            </div>
+
+            <!-- Auto Mode Status Card -->
+            <div class="bg-white rounded-2xl p-4 shadow-lg shadow-emerald-900/5 border border-slate-100 flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-medium text-slate-400">Auto Irrigation</span>
+                    <div class="p-2 rounded-xl bg-teal-50 text-teal-600">
+                        <svg class="w-5 h-5" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><rect width="16" height="16" x="4" y="4" rx="2"></rect><rect width="6" height="6" x="9" y="9" rx="1"></rect><path d="M15 2v2"></path><path d="M15 20v2"></path><path d="M2 15h2"></path><path d="M2 9h2"></path><path d="M20 15h2"></path><path d="M20 9h2"></path><path d="M9 2v2"></path><path d="M9 20v2"></path></svg>
+                    </div>
+                </div>
+                <div>
+                    <h3 id="val-auto" class="text-xl font-bold text-slate-800">--</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Control Mode</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Last Watered Info Card -->
+        <div class="bg-white rounded-2xl p-4 shadow-md shadow-emerald-900/5 border border-slate-100 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 rounded-xl bg-sky-50 text-sky-600">
+                    <svg class="w-5 h-5" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+                <div>
+                    <span class="text-xs font-medium text-slate-400 block">Last Watered</span>
+                    <span id="val-last" class="text-sm font-semibold text-slate-700">Never</span>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
+                    Active Monitor
+                </span>
+            </div>
+        </div>
+
+        <!-- Action Control Buttons -->
+        <div class="space-y-3 pt-2">
+            <button onclick="triggerWaterNow()" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold py-3.5 px-6 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all duration-200 flex items-center justify-center space-x-2 active:scale-95">
+                <svg class="w-5 h-5" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"></path></svg>
+                <span>Water Now (/api/water)</span>
+            </button>
+
+            <button onclick="triggerToggleAuto()" class="w-full bg-white hover:bg-slate-50 text-slate-700 font-semibold py-3.5 px-6 rounded-2xl shadow-md border border-slate-200 transition-all duration-200 flex items-center justify-center space-x-2 active:scale-95">
+                <svg class="w-5 h-5 text-slate-500" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="m17 2 4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="m7 22-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg>
+                <span>Toggle Auto Mode (/api/auto)</span>
+            </button>
+
+            <!-- Install PWA App Button -->
+            <button id="install-pwa-btn" onclick="installPWA()" class="hidden w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold py-3 px-6 rounded-2xl border border-emerald-200 transition-all duration-200 items-center justify-center space-x-2">
+                <svg class="w-5 h-5 text-emerald-600" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
+                <span>Install as Phone App</span>
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Settings Modal / IP Configuration Drawer -->
+    <div id="settings-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl space-y-5 animate-in slide-in-from-bottom duration-300">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-emerald-600" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    <h2 class="font-bold text-lg text-slate-800">Connection Settings</h2>
+                </div>
+                <button onclick="toggleSettingsModal()" class="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                    <svg class="w-5 h-5" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">ESP32 IP Address or Host</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="esp-ip-input" placeholder="e.g. 192.168.1.50 or Wokwi URL" class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
+                        <button onclick="saveIpSettings()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2.5 rounded-xl text-sm transition shadow-sm">Save</button>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1.5">Ensure your phone and ESP32 are connected to the exact same Wi-Fi network.</p>
+                    <p id="https-warning" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">This page is open over HTTPS, so the browser will block requests to a plain-HTTP ESP32. Use the installed Android app (APK) or open the page over http:// on your local network.</p>
+                </div>
+
+                <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <div>
+                        <span class="text-sm font-semibold text-slate-700 block">Simulation / Demo Mode</span>
+                        <span class="text-xs text-slate-400">Test dashboard UI without live ESP32 hardware</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="demo-mode-toggle" onchange="toggleDemoMode()" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="pt-2">
+                <button onclick="toggleSettingsModal()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 rounded-xl text-sm transition">Close Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Credit -->
+    <footer class="text-center py-4 text-xs text-slate-400">
+        Smart Plant Waterer &bull; ESP32 WebServer Client
+    </footer>
+
+    <!-- JavaScript Logic & Polling Loop -->
+    <script>
+// PWA Installation Prompt Logic
+        let deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const installBtn = document.getElementById('install-pwa-btn');
+            if (installBtn) { installBtn.classList.remove('hidden'); installBtn.classList.add('flex'); }
+        });
+
+        async function installPWA() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                document.getElementById('install-pwa-btn').classList.add('hidden');
+                document.getElementById('install-pwa-btn').classList.remove('flex');
+            } 
+            deferredPrompt = null;
+        }
+
+        // Offline support (service worker); skipped silently where unsupported
+        if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(() => {});
+            });
+        }
+
+        // State variables
+        let espIp = localStorage.getItem('esp_ip') || '';
+        let isDemoMode = localStorage.getItem('demo_mode') === 'true';
+        let pollInterval = null;
+
+        // Simulated state for Demo mode
+        let simState = {
+            dryness: 65,
+            pump: "OFF",
+            auto: "ON",
+            last: "2 min ago"
+        };
+
+        // DOM Elements
+        const ipInput = document.getElementById('esp-ip-input');
+        const demoToggle = document.getElementById('demo-mode-toggle');
+        const badge = document.getElementById('connection-badge');
+        const subTitle = document.getElementById('connection-subtitle');
+        const valDryness = document.getElementById('val-dryness');
+        const drynessRing = document.getElementById('dryness-ring');
+        const drynessStatusText = document.getElementById('dryness-status-text');
+        const valPump = document.getElementById('val-pump');
+        const pumpCard = document.getElementById('pump-card');
+        const pumpIconBg = document.getElementById('pump-icon-bg');
+        const valAuto = document.getElementById('val-auto');
+        const valLast = document.getElementById('val-last');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+        const settingsModal = document.getElementById('settings-modal');
+
+        // Initialize UI values on load
+        ipInput.value = espIp;
+        demoToggle.checked = isDemoMode;
+
+        if (isDemoMode) {
+            enableDemoModeUI();
+        } else if (espIp) {
+            startPolling();
+        } else {
+            setOfflineState("No IP Configured");
+        }
+
+        function toggleSettingsModal() {
+            settingsModal.classList.toggle('hidden');
+            settingsModal.classList.toggle('flex');
+        }
+
+        function saveIpSettings() {
+            let val = ipInput.value.trim();
+            // Remove http:// prefix if user entered it
+            val = val.replace(/^https?:\/\//, '').replace(/\/$/, '');
+            espIp = val;
+            localStorage.setItem('esp_ip', espIp);
+            
+            if (espIp) {
+                isDemoMode = false;
+                localStorage.setItem('demo_mode', 'false');
+                demoToggle.checked = false;
+                showToast("IP Address saved successfully!");
+                startPolling();
+            } else {
+                setOfflineState("No IP Configured");
+            }
+            toggleSettingsModal();
+        }
+
+        function toggleDemoMode() {
+            isDemoMode = demoToggle.checked;
+            localStorage.setItem('demo_mode', isDemoMode);
+            if (isDemoMode) {
+                enableDemoModeUI();
+                showToast("Demo simulation mode enabled");
+            } else {
+                if (espIp) {
+                    startPolling();
+                    showToast("Connected to ESP32 IP");
+                } else {
+                    setOfflineState("No IP Configured");
+                }
+            }
+            toggleSettingsModal();
+        }
+
+        function enableDemoModeUI() {
+            if (pollInterval) clearInterval(pollInterval);
+            subTitle.textContent = "Simulation Mode (Active)";
+            badge.className = "px-2.5 py-1 text-xs font-medium rounded-full bg-teal-500/20 text-teal-300 border border-teal-400/30 flex items-center gap-1.5";
+            badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-teal-400"></span> Simulation`;
+            
+            // Start simulation loop
+            updateUI(simState);
+            pollInterval = setInterval(() => {
+                // Randomize slight dryness fluctuation in demo
+                if (simState.pump === "OFF") {
+                    simState.dryness = Math.min(100, Math.max(10, simState.dryness + (Math.random() > 0.6 ? 1 : 0)));
+                } else {
+                    simState.dryness = Math.max(10, simState.dryness - 5);
+                    if (simState.dryness <= 20) simState.pump = "OFF";
+                }
+                updateUI(simState);
+            }, 3000);
+        }
+
+        function setOfflineState(msg) {
+            if (pollInterval) clearInterval(pollInterval);
+            subTitle.textContent = msg;
+            badge.className = "px-2.5 py-1 text-xs font-medium rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/30 flex items-center gap-1.5";
+            badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span> Offline`;
+        }
+
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+            subTitle.textContent = "Connecting to " + espIp + "...";
+            badge.className = "px-2.5 py-1 text-xs font-medium rounded-full bg-blue-500/20 text-blue-200 border border-blue-400/30 flex items-center gap-1.5";
+            badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span> Connecting`;
+
+            fetchStatus();
+            pollInterval = setInterval(fetchStatus, 3000);
+        }
+
+        async function fetchStatus() {
+            if (isDemoMode) return;
+            try {
+                const response = await fetch(`http://${espIp}/status`, { mode: 'cors', signal: AbortSignal.timeout(2500) });
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+                
+                subTitle.textContent = "Connected (" + espIp + ")";
+                badge.className = "px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 flex items-center gap-1.5";
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Connected`;
+
+                updateUI({
+                    dryness: data.dryness,
+                    pump: data.pump,
+                    auto: data.auto,
+                    last: data.last
+                });
+            } catch (error) {
+                console.warn("Polling error:", error);
+                setOfflineState("Connection Lost / Unreachable");
+            }
+        }
+
+        function updateUI(data) {
+            // Update Dryness
+            valDryness.textContent = data.dryness + "%";
+            // SVG Circle circumference is 251.2 (2 * PI * 40)
+            const offset = 251.2 - (251.2 * data.dryness) / 100;
+            drynessRing.style.strokeDashoffset = offset;
+
+            if (data.dryness >= 60) {
+                drynessRing.className = "text-amber-500 fill-none transition-all duration-500";
+                drynessStatusText.textContent = "Soil is dry! Needs water.";
+                drynessStatusText.className = "text-sm font-medium text-amber-600 mt-2";
+            } else {
+                drynessRing.className = "text-emerald-500 fill-none transition-all duration-500";
+                drynessStatusText.textContent = "Soil moisture level is healthy.";
+                drynessStatusText.className = "text-sm font-medium text-emerald-600 mt-2";
+            }
+
+            // Update Pump
+            valPump.textContent = data.pump;
+            if (data.pump === "ON") {
+                pumpCard.className = "bg-emerald-50 rounded-2xl p-4 shadow-lg shadow-emerald-900/10 border border-emerald-200 flex flex-col justify-between transition-all duration-300 ring-2 ring-emerald-400/50";
+                pumpIconBg.className = "p-2 rounded-xl bg-emerald-500 text-white animate-bounce";
+            } else {
+                pumpCard.className = "bg-white rounded-2xl p-4 shadow-lg shadow-emerald-900/5 border border-slate-100 flex flex-col justify-between transition-all duration-300";
+                pumpIconBg.className = "p-2 rounded-xl bg-slate-100 text-slate-500";
+            }
+
+            // Update Auto Mode
+            valAuto.textContent = data.auto;
+
+            // Update Last Watered
+            valLast.textContent = data.last;
+        }
+
+        async function triggerWaterNow() {
+            if (isDemoMode) {
+                simState.pump = "ON";
+                simState.dryness = Math.max(10, simState.dryness - 20);
+                simState.last = "Just now";
+                updateUI(simState);
+                showToast("Water pump triggered (Demo)");
+                return;
+            }
+
+            if (!espIp) {
+                showToast("Please configure ESP32 IP address first.");
+                toggleSettingsModal();
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://${espIp}/api/water`, { mode: 'cors' });
+                if (response.ok) {
+                    showToast("Water command sent successfully!");
+                    fetchStatus();
+                } else {
+                    showToast("Failed to trigger water command.");
+                }
+            } catch (err) {
+                showToast("Network error communicating with ESP32.");
+            }
+        }
+
+        async function triggerToggleAuto() {
+            if (isDemoMode) {
+                simState.auto = simState.auto === "ON" ? "OFF" : "ON";
+                updateUI(simState);
+                showToast("Auto mode toggled to " + simState.auto + " (Demo)");
+                return;
+            }
+
+            if (!espIp) {
+                showToast("Please configure ESP32 IP address first.");
+                toggleSettingsModal();
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://${espIp}/api/auto`, { mode: 'cors' });
+                if (response.ok) {
+                    const text = await response.text();
+                    showToast("Auto mode updated: " + text);
+                    fetchStatus();
+                } else {
+                    showToast("Failed to toggle auto mode.");
+                }
+            } catch (err) {
+                showToast("Network error communicating with ESP32.");
+            }
+        }
+
+        function showToast(msg) {
+            toastMessage.textContent = msg;
+            toast.className = "bg-slate-900 text-white transform transition-all duration-300 rounded-2xl p-3 text-sm font-medium shadow-lg flex items-center justify-between";
+            setTimeout(() => {
+                toast.className = "hidden";
+            }, 3500);
+        }
+
+        function hideToast() {
+            toast.className = "hidden";
+        }
+    </script>
+</body>
+</html>

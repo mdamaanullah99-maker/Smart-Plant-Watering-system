@@ -1,0 +1,5 @@
+/* Only needed if you add new Tailwind classes to www/index.html.
+   Rebuild www/app.css with:
+   npx @tailwindcss/cli -i src/input.css -o www/app.css --minify */
+@import "tailwindcss";
+@source "../www/index.html";
