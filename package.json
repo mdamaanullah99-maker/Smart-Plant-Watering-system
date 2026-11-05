@@ -1,0 +1,21 @@
+{
+  "name": "plant-waterer-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Smart Plant Waterer - ESP32 dashboard packaged as an Android app",
+  "scripts": {
+    "serve": "npx http-server www -p 8080 -c-1",
+    "icons": "capacitor-assets generate --android",
+    "android:add": "cap add android",
+    "android:sync": "cap sync android",
+    "android:open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.2.0"
+  }
+}

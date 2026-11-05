@@ -1,0 +1,12 @@
+{
+  "appId": "com.plantwaterer.app",
+  "appName": "Plant Waterer",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}
